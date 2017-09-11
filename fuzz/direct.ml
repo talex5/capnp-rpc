@@ -4,27 +4,30 @@ let next = ref 0
 
 type target =
   | Id of int
-  | See of cap
-and cap = {
+  | See of base_ref
+and base_ref = {
   mutable target : target;
 }
-and struct_ref = {
-  struct_id : int;
-  caps : (int, cap) Hashtbl.t;
+
+type cap = base_ref
+
+type struct_ref = {
+  struct_id : base_ref;
+  mutable caps : (int, cap) Hashtbl.t;  (* Mutable to allow unifying *)
 }
 
-let make_cap () =
+let make_ref () =
   let id = !next in
   incr next;
   { target = Id id }
 
+let make_cap = make_ref
+
 let null = make_cap ()
 
 let make_struct () =
-  let struct_id = !next in
-  incr next;
   {
-    struct_id;
+    struct_id = make_ref ();
     caps = Hashtbl.create 3;
   }
 
@@ -44,10 +47,10 @@ let compare_sr a b =
 let rec pp f t =
   match t.target with
   | See t' -> pp f t'
-  | Id x -> Fmt.pf f "c-%d" x
+  | Id x -> Fmt.pf f "%d" x
 let pp = Fmt.styled `Magenta (Fmt.styled `Bold pp)
 
-let pp_struct f s = Fmt.pf f "s-%d" s.struct_id
+let pp_struct f s = Fmt.pf f "s-%a" pp s.struct_id
 let pp_struct = Fmt.styled `Blue (Fmt.styled `Bold pp_struct)
 
 let rec unify a b =
@@ -78,3 +81,12 @@ let return s caps =
         unify c (RO_array.get_exn caps i);
     );
   caps |> RO_array.iteri (Hashtbl.replace s.caps)
+
+let return_tail s ~src =
+  let unify_cap i s_cap =
+    let src_cap = cap src i in
+    unify s_cap src_cap
+  in
+  Hashtbl.iter unify_cap s.caps;
+  s.caps <- src.caps;
+  unify s.struct_id src.struct_id
