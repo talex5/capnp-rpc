@@ -455,7 +455,7 @@ module Vat = struct
                       "Return struct %a (%a)" Struct_info.dump s Direct.pp_struct answer_id);
         Direct.return_tail answer_id ~src:(s.Struct_info.direct);
         code (fun f ->
-            Fmt.pf f "%a#resolve @@ %a;"
+            Fmt.pf f "%a#resolve %a;"
               pp_resolver answer_var
               pp_struct s.Struct_info.var
           );
@@ -466,7 +466,7 @@ module Vat = struct
         Direct.return answer_id RO_array.empty;
         let msg = "(simulated-failure)" in
         code (fun f ->
-            Fmt.pf f "resolve_exn %a @@ Capnp_rpc.Exception.v %S;"
+            Fmt.pf f "resolve_exn %a (Capnp_rpc.Exception.v %S);"
               pp_resolver answer_var
               msg
           );

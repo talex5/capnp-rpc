@@ -1517,6 +1517,49 @@ let test_unimplemented () =
     Logs.err (fun f -> f "Error: %a@\n%a" Fmt.exn ex S.dump s);
     raise ex
 
+module V0_2 = CS.C
+module V2_0 = CS.S
+
+let test_tail_call () =
+  let service_2 = Services.manual () in (* Bootstrap for vat 1 *)
+  let c, s = CS.create
+    ~client_tags:Test_utils.client_tags
+    ~server_tags:Test_utils.server_tags service_2
+  in
+  let service_3 = Services.manual () in (* Bootstrap for vat 2 *)
+  let v0_2, v2_0 = CS.create
+    ~client_tags:Test_utils.client_tags
+    ~server_tags:Test_utils.server_tags service_3
+  in
+  let to_service_2 = C.bootstrap c in
+  CS.flush c s;
+  let to_service_3 = V0_2.bootstrap v0_2 in
+  CS.flush v0_2 v2_0;
+  let x1 = call_for_cap to_service_2 "q1" [to_service_3] in
+  let q2 = call to_service_3 "q2" [x1] in
+  dec_ref q2;
+  let q3 = call x1 "q3" [] in
+  S.handle_msg s ~expect:"call:q1";
+  let v2_to_service_3, a1 = service_2#pop1 "q1" in
+  resolve_ok a1 "reply" [v2_to_service_3];
+  V2_0.handle_msg v2_0 ~expect:"call:q2";
+  let to_x1, a2 = service_3#pop1 "q2" in
+  let m1 = call to_x1 "m1" [] in
+  let m2 = call to_x1 "m2" [] in
+  a2#resolve m1;
+  C.handle_msg c ~expect:"return:reply";
+  CS.flush v0_2 v2_0;
+  CS.flush c s;
+  CS.flush v0_2 v2_0;
+  let a3 = service_3#pop0 "q3" in
+  let am1 = service_3#pop0 "m1" in
+  resolve_ok a3 "a3" [];
+  resolve_ok am1 "am1" [];
+  dec_ref q3;
+  dec_ref m1;
+  dec_ref m2;
+  CS.check_finished c s
+
 let tests = [
   "Return",     `Quick, test_return;
   "Return error", `Quick, test_return_error;
@@ -1564,6 +1607,7 @@ let tests = [
   "Broken call", `Quick, test_broken_call;
   "Broken later", `Quick, test_broken_later;
   "Broken connection", `Quick, test_broken_connection;
+  "Tail call", `Quick, test_tail_call;
 ] |> List.map (fun (name, speed, test) ->
     name, speed, (fun () ->
         Testbed.Capnp_direct.ref_leaks := 0;
