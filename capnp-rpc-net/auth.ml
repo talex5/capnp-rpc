@@ -123,20 +123,17 @@ module Secret_key = struct
     let dn =
       [ X509.Distinguished_name.(Relative_distinguished_name.singleton (CN "capnp")) ]
     in
-    let csr = X509.Signing_request.create dn t in
-    let valid_from = date_time
-                       ~date:(1970, 1, 1)
-                       ~time:(1, 1, 1)
-    in
-    (* RFC 5280 says expiration date should be GeneralizedTime value 99991231235959Z *)
-    let valid_until = date_time
-                        ~date:(9999, 12, 31)
-                        ~time:(23, 59, 59)
-    in
-    X509.Signing_request.sign csr ~valid_from ~valid_until t dn |>
-    function
-    | Ok v -> v
-    | Error err -> Fmt.failwith "x509 signing failed: %a" X509.Validation.pp_signature_error err
+    match X509.Signing_request.create dn t with
+    | Error (`Msg m) ->
+      Fmt.failwith "x509 certificate signing request creation failed %s" m
+    | Ok csr ->
+      let valid_from = date_time ~date:(1970, 1, 1) ~time:(1, 1, 1) in
+      (* RFC 5280 says expiration date should be GeneralizedTime value 99991231235959Z *)
+      let valid_until = date_time ~date:(9999, 12, 31) ~time:(23, 59, 59) in
+      X509.Signing_request.sign csr ~valid_from ~valid_until t dn |>
+      function
+      | Ok v -> v
+      | Error err -> Fmt.failwith "x509 signing failed: %a" X509.Validation.pp_signature_error err
 
   let of_priv priv =
     let cert = x509 priv in
