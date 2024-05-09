@@ -20,7 +20,7 @@ module Metrics = struct
     let help = "Total number of messages enqueued to be transmitted" in
     Counter.v ~help ~namespace ~subsystem "messages_outbound_enqueued_total"
 
-  let messages_outbound_sent_total =
+  let _messages_outbound_sent_total =
     let help = "Total number of messages transmitted" in
     Counter.v ~help ~namespace ~subsystem "messages_outbound_sent_total"
 
@@ -46,7 +46,6 @@ module Make (Network : S.NETWORK) = struct
     sw : Switch.t;
     endpoint : Endpoint.t;
     conn : Conn.t;
-    xmit_queue : Capnp.Message.rw Capnp.BytesMessage.Message.t Eio.Stream.t;
     mutable disconnecting : bool;
   }
 
@@ -61,11 +60,12 @@ module Make (Network : S.NETWORK) = struct
 
   let tags t = Conn.tags t.conn
 
-  let drop_queue q =
+  let _drop_queue q =
     let len = Eio.Stream.length q in
     Prometheus.Counter.inc Metrics.messages_outbound_dropped_total (float_of_int len)
     (* Queue.clear q           -- could close stream here instead *)
 
+(*
   (* [flush ~xmit_queue endpoint] writes each message in [xmit_queue] to [endpoint]. *)
   let rec flush ~xmit_queue endpoint =
     let next = Eio.Stream.take xmit_queue in
@@ -85,9 +85,10 @@ module Make (Network : S.NETWORK) = struct
     | exception ex ->
       drop_queue xmit_queue;
       raise ex
+*)
 
   (* Enqueue [message] in [xmit_queue] and ensure the flush thread is running. *)
-  let queue_send ~xmit_queue message =
+  let _queue_send ~xmit_queue message =
     Log.debug (fun f ->
         let module M = Capnp_rpc_lwt.Private.Schema.MessageWrapper.Message in
         f "queue_send: %d/%d allocated bytes in %d segs"
@@ -102,7 +103,7 @@ module Make (Network : S.NETWORK) = struct
     let open Builder in
     let m = Message.init_root () in
     let _ : Builder.Message.t = Message.unimplemented_set_reader m x in
-    queue_send ~xmit_queue:t.xmit_queue (Message.to_message m)
+    Endpoint.send t.endpoint (Message.to_message m)
 
   let listen t =
     let rec loop () =
@@ -141,7 +142,7 @@ module Make (Network : S.NETWORK) = struct
     loop ()
 
   let send_abort t ex =
-    queue_send ~xmit_queue:t.xmit_queue (Serialise.message (`Abort ex))
+    Endpoint.send t.endpoint (Serialise.message (`Abort ex))
 
   let disconnect t ex =
     if not t.disconnecting then (
@@ -154,9 +155,16 @@ module Make (Network : S.NETWORK) = struct
   let disconnecting t = t.disconnecting
 
   let connect ~sw ~restore ?(tags=Logs.Tag.empty) endpoint =
-    let xmit_queue = Eio.Stream.create 100 in   (* todo: tune this? make it configurable? *)
-    Fiber.fork_daemon ~sw (fun () -> flush ~xmit_queue endpoint);
-    let queue_send msg = Eio.Stream.add xmit_queue (Serialise.message msg) in
+    Fiber.fork_daemon ~sw (fun () ->
+        begin match Endpoint.run endpoint with
+          | Ok () -> ()
+          | Error `Closed -> Endpoint.disconnect endpoint
+          | Error (`Msg msg) ->
+            Log.warn (fun f -> f "Error sending messages: %s (will shutdown connection)" msg);
+            Endpoint.disconnect endpoint;
+        end;
+        `Stop_daemon);
+    let queue_send msg = Endpoint.send endpoint (Serialise.message msg) in
     let restore = Restorer.fn restore in
     let fork = Fiber.fork ~sw in
     let conn = Conn.create ~restore ~tags ~fork ~queue_send in
@@ -164,7 +172,6 @@ module Make (Network : S.NETWORK) = struct
       sw;
       conn;
       endpoint;
-      xmit_queue;
       disconnecting = false;
     }
 

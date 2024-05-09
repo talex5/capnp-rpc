@@ -6,8 +6,11 @@ val src : Logs.src
 type t
 (** A wrapper for a byte-stream (flow). *)
 
-val send : t -> 'a Capnp.BytesMessage.Message.t -> (unit, [`Closed | `Msg of string]) result
-(** [send t msg] transmits [msg]. *)
+val send : t -> 'a Capnp.BytesMessage.Message.t -> unit
+(** [send t msg] enqueues [msg]. *)
+
+val run : t -> (unit, [`Closed | `Msg of string]) result
+(** [run t] runs the writer flush loop. *)
 
 val recv : t -> (Capnp.Message.ro Capnp.BytesMessage.Message.t, [> `Closed]) result
 (** [recv t] reads the next message from the remote peer.
