@@ -767,6 +767,6 @@ let rpc_tests ~net ~dir =
 let () =
   Eio_main.run @@ fun env ->
   (* Eio_unix.Ctf.with_tracing "/tmp/trace.ctf" @@ fun () -> *)
-  Alcotest.run ~and_exit:false "capnp-rpc" [
+  Alcotest.run ~verbose:true ~show_errors:true ~bail:true ~and_exit:false "capnp-rpc" [
     "eio", rpc_tests ~net:env#net ~dir:env#cwd;
   ]
