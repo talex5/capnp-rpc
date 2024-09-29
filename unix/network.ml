@@ -98,6 +98,7 @@ let connect net ~sw ~secret_key (addr, auth) =
     end;
     Tls_wrapper.connect_as_client ~sw socket secret_key auth
   | exception ex ->
+    Fiber.check ();
     error "@[<v2>Network connection for %a failed:@,%a@]" Location.pp addr Fmt.exn ex
 
 let accept_connection ~sw ~secret_key flow =

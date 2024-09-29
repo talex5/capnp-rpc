@@ -17,7 +17,7 @@ let connect_as_server ~sw flow secret_key =
     let tls_config = Secret_key.tls_server_config key in
     match Tls_eio.server_of_flow tls_config flow with
     | exception (Failure msg) -> error "TLS connection failed: %s" msg
-    | exception ex -> error "TLS connection failed: %a" Fmt.exn ex
+    | exception ex -> Eio.Fiber.check (); error "TLS connection failed: %a" Fmt.exn ex
     | flow ->
       match Tls_eio.epoch flow with
       | Error () -> failwith "Unknown error getting TLS epoch data"
@@ -36,5 +36,5 @@ let connect_as_client ~sw flow secret_key auth =
     Log.info (fun f -> f "Doing TLS client-side handshake...");
     match Tls_eio.client_of_flow tls_config flow with
     | exception (Failure msg) -> error "TLS connection failed: %s" msg
-    | exception ex -> error "TLS connection failed: %a" Fmt.exn ex
+    | exception ex -> Eio.Fiber.check (); error "TLS connection failed: %a" Fmt.exn ex
     | flow -> Ok (Endpoint.of_flow ~sw ~peer_id:auth flow)

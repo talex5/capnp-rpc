@@ -46,6 +46,10 @@ let local (s:#generic) =
         Payload.content_get p |> Schema.ReaderOps.deref_opt_struct_pointer |> Schema.ReaderOps.cast_struct in
       match m contents release_params with
       | r -> results#resolve r
+      | exception (Eio.Cancel.Cancelled _ as ex) ->
+        release_params ();
+        Core_types.resolve_payload results (Error `Cancelled);
+        raise ex
       | exception ex ->
         release_params ();
         Log.warn (fun f -> f "Uncaught exception handling %a: %a" pp_method (interface_id, method_id) Fmt.exn ex);
