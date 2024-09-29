@@ -30,3 +30,10 @@ build: [
   ["dune" "runtest" "-p" name "-j" jobs] {with-test}
 ]
 dev-repo: "git+https://github.com/mirage/capnp-rpc.git"
+pin-depends: [
+  ["eio.dev" "git+https://github.com/talex5/eio#83644281476ae72cc45d280ebe2d5015146c6f8f"]
+  ["eio_main.dev" "git+https://github.com/talex5/eio#83644281476ae72cc45d280ebe2d5015146c6f8f"]
+  ["eio_windows.dev" "git+https://github.com/talex5/eio#83644281476ae72cc45d280ebe2d5015146c6f8f"]
+  ["eio_linux.dev" "git+https://github.com/talex5/eio#83644281476ae72cc45d280ebe2d5015146c6f8f"]
+  ["eio_posix.dev" "git+https://github.com/talex5/eio#83644281476ae72cc45d280ebe2d5015146c6f8f"]
+]
