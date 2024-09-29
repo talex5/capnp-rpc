@@ -22,9 +22,6 @@ let _debug () =
 type cs = {
   client : Vat.t;
   server : Vat.t;
-  client_key : Auth.Secret_key.t;
-  server_key : Auth.Secret_key.t;
-  serve_tls : bool;
 }
 
 let next_port = ref 8000
@@ -83,9 +80,6 @@ let make_vats_full ?(serve_tls=false) ?server_sw ~sw ~net ~restore () =
   {
     client = Vat.create ~sw ~tags:Test_utils.client_tags ~secret_key:(lazy client_key) net;
     server;
-    client_key;
-    server_key;
-    serve_tls;
   }
 
 let with_vats ?serve_tls ?server_sw ~net ~service fn =

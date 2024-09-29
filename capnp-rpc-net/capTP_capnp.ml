@@ -15,7 +15,6 @@ module Make (Network : S.NETWORK) = struct
   module Serialise = Serialise.Make(Endpoint_types)
 
   type t = {
-    sw : Switch.t;
     endpoint : Endpoint.t;
     conn : Conn.t;
     mutable disconnecting : bool;
@@ -93,7 +92,6 @@ module Make (Network : S.NETWORK) = struct
     let fork = Fiber.fork ~sw in
     let conn = Conn.create ~restore ~tags ~fork ~queue_send in
     {
-      sw;
       conn;
       endpoint;
       disconnecting = false;
